@@ -2,7 +2,6 @@
 
 This creates an EKS compatible VPC infrastructure with 3 private subnets and 3 public subnets.
 
-
 ## Examples
 
 This is an example where the VPC tag `Name` the same as the future eks-cluster name.

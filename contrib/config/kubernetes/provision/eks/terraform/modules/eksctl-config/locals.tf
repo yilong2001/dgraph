@@ -9,13 +9,13 @@ locals {
     desired_capacity = var.desired_capacity
 
     subnet_private = {
-      for id in data.aws_subnet_ids.private_subnet_ids.ids:
-        data.aws_subnet.private_subnets[id].availability_zone => id
+      for id in data.aws_subnet_ids.private_subnet_ids.ids :
+      data.aws_subnet.private_subnets[id].availability_zone => id
     }
 
     subnet_public = {
-      for id in data.aws_subnet_ids.public_subnet_ids.ids:
-        data.aws_subnet.public_subnets[id].availability_zone => id
+      for id in data.aws_subnet_ids.public_subnet_ids.ids :
+      data.aws_subnet.public_subnets[id].availability_zone => id
     }
   }
 

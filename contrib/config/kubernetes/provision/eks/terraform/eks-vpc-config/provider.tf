@@ -1,10 +1,6 @@
 #####################################################################
-# Terraform
+# Provider: Amazon Web Services
 #####################################################################
-terraform {
-  required_version = ">= 0.12"
-
-  required_providers {
-    aws = "~> 3.3"
-  }
+provider "aws" {
+  region = var.region
 }
