@@ -21,6 +21,6 @@ module "config" {
   region          = var.region
   vpc_id          = module.vpc.vpc_id
   instance_type   = "m5.2xlarge"
-  public_key_name = "joaquin"
+  public_key_name = "my-org-key-name"
   filename        = "${path.module}/../../eksctl/cluster_config.yaml"
 }

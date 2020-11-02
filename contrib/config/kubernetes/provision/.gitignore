@@ -1,0 +1,8 @@
+# script ignores
+env.sh
+cluster_config.yaml
+
+## terraform ignores
+terraform.tfvars
+*terraform.tfstate*
+.terraform
