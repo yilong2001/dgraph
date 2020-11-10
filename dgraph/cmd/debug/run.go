@@ -23,7 +23,6 @@ import (
 	"io"
 	"log"
 	"math"
-	"os"
 	"sort"
 	"strconv"
 	"strings"
@@ -66,7 +65,8 @@ type flagOptions struct {
 	wsetSnapshot   string
 	oldWalFormat   bool
 
-	btree string // file to read as btree
+	btree     string // file to read as btree
+	btreeOnly bool
 }
 
 func init() {
@@ -101,6 +101,8 @@ func init() {
 		"Set snapshot term,index,readts to this. Value must be comma-separated list containing"+
 			" the value for these vars in that order.")
 	flag.StringVarP(&opt.btree, "btree", "b", "", "Denotes the file to be printed as btree")
+	flag.BoolVar(&opt.btreeOnly, "btree-only", false,
+		"If this is set, then it only prints the stats for btree.")
 	enc.RegisterFlags(flag)
 }
 
@@ -797,9 +799,7 @@ func printZeroProposal(buf *bytes.Buffer, zpr *pb.ZeroProposal) {
 }
 
 func printBtree(fname string) {
-	mf, err := z.OpenMmapFile(fname, os.O_RDONLY, 0)
-	x.Check(err)
-	t := &z.Tree{mf: mf}
+	t := z.LoadTree(fname)
 	t.Print()
 }
 
@@ -807,6 +807,9 @@ func run() {
 	// Print B+ tree.
 	if len(opt.btree) > 0 {
 		printBtree(opt.btree)
+	}
+	if opt.btreeOnly {
+		return
 	}
 
 	var err error
