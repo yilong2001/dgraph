@@ -23,6 +23,7 @@ import (
 	"io"
 	"log"
 	"math"
+	"os"
 	"sort"
 	"strconv"
 	"strings"
@@ -35,6 +36,7 @@ import (
 	"github.com/dgraph-io/dgraph/raftwal"
 	"github.com/dgraph-io/dgraph/types"
 	"github.com/dgraph-io/dgraph/x"
+	"github.com/dgraph-io/ristretto/z"
 	"github.com/spf13/cobra"
 )
 
@@ -63,6 +65,8 @@ type flagOptions struct {
 	wtruncateUntil uint64
 	wsetSnapshot   string
 	oldWalFormat   bool
+
+	btree string // file to read as btree
 }
 
 func init() {
@@ -96,6 +100,7 @@ func init() {
 	flag.StringVarP(&opt.wsetSnapshot, "snap", "s", "",
 		"Set snapshot term,index,readts to this. Value must be comma-separated list containing"+
 			" the value for these vars in that order.")
+	flag.StringVarP(&opt.btree, "btree", "b", "", "Denotes the file to be printed as btree")
 	enc.RegisterFlags(flag)
 }
 
@@ -791,7 +796,19 @@ func printZeroProposal(buf *bytes.Buffer, zpr *pb.ZeroProposal) {
 	}
 }
 
+func printBtree(fname string) {
+	mf, err := z.OpenMmapFile(fname, os.O_RDONLY, 0)
+	x.Check(err)
+	t := &z.Tree{mf: mf}
+	t.Print()
+}
+
 func run() {
+	// Print B+ tree.
+	if len(opt.btree) > 0 {
+		printBtree(opt.btree)
+	}
+
 	var err error
 	dir := opt.pdir
 	isWal := false
