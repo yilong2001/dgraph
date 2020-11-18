@@ -1,23 +1,25 @@
 ## fork 说明
 dgraph作为图数据库，如果应用于图计算，需要使用 spark connector (https://github.com/G-Research/spark-dgraph-connector) 。
+
 使用spark 做图计算引擎，优点在于使用简单，但不足之处是在性能上会有一定限制。
+
 此 fork 的主要目标是，基于dgraph实现一个原生图计算的示例，以 node2vec 为例，探讨基于 dgraph 实现原生图计算引擎的可能性。
 
 ## node2vec 使用示例
 在 ratel web页面，使用如下查询条件执行 node2vec 算法：
 ```
 {
-	# 得到参与计算 node2vec 的 uids
+  # 得到参与计算 node2vec 的 uids
   data1 as var(func: has(friend)) {
-	}
+  }
   # 计算 uids 的 node2vec 值
-	path as node2vec(func: uid(data1), qval:0.25, pval:1, rval:3, lval:3) {
-		friend
-	}
+  path as node2vec(func: uid(data1), qval:0.25, pval:1, rval:3, lval:3) {
+    friend
+  }
   # 用于计算 node2vec 的uid，可以获取更多的一些现实属性
   outdata(func: uid(path)) {
-   name
- }
+    name
+  }
 }
 ```
 
