@@ -86,6 +86,11 @@ type GraphQuery struct {
 	// True for blocks that don't have a starting function and hence no starting nodes. They are
 	// used to aggregate and get variables defined in another block.
 	IsEmpty bool
+
+	// node2vec 
+	// 2020-11-04 changed
+	Node2VecArgs    Node2VecArgs
+
 }
 
 // RecurseArgs stores the arguments needed to process the @recurse directive.
@@ -105,6 +110,20 @@ type ShortestPathArgs struct {
 	From *Function
 	To   *Function
 }
+
+/*
+ * node2vec args
+ * 2020-11-04 create
+*/
+type Node2VecArgs struct {
+	//
+	QVal float32
+	PVal float32
+	LVal int
+	RVal int
+	Func *Function
+}
+
 
 // GroupByAttr stores the arguments needed to process the @groupby directive.
 type GroupByAttr struct {
@@ -2602,6 +2621,10 @@ func validKeyAtRoot(k string) bool {
 		return true
 	case "depth":
 		return true
+	// node2vec 
+	// 2020-11-04 created
+	case "qval", "pval", "rval", "lval":
+		return true
 	}
 	return false
 }
@@ -2721,6 +2744,11 @@ loop:
 			}
 			gq.Func = gen
 			gq.NeedsVar = append(gq.NeedsVar, gen.NeedsVar...)
+
+			// node2vec 2020-11-08 created 
+			if gq.Alias == "node2vec" {
+				gq.Node2VecArgs.Func = gen
+			}
 		case "from", "to":
 			if gq.Alias != "shortest" {
 				return gq, item.Errorf("from/to only allowed for shortest path queries")
@@ -2769,6 +2797,40 @@ loop:
 						" Got: %s", val)
 			}
 			assignShortestPathFn(fn, key)
+		// node2vec 
+		// 2020-11-04 create
+		case "qval","pval","rval","lval":
+			if gq.Alias != "node2vec" {
+				return gq, item.Errorf("qval,pval,rval,lval only allowed for node2vec queries")
+			}
+			it.Next()
+			item := it.Item()
+			val := collectName(it, item.Val)
+			if key == "qval" {
+				floatval, err := strconv.ParseFloat(val, 32)
+				if err != nil {
+					return nil, item.Errorf("The float value %q is error.", val)
+				}
+				gq.Node2VecArgs.QVal = float32(floatval)
+			} else if key == "pval" {
+				floatval, err := strconv.ParseFloat(val, 32)
+				if err != nil {
+					return nil, item.Errorf("The float value %q is error.", val)
+				}
+				gq.Node2VecArgs.PVal = float32(floatval)
+			} else if key == "rval" {
+				intval, err := strconv.ParseInt(val, 10, 32)
+				if err != nil {
+					return nil, item.Errorf("The int value %q is error.", val)
+				}
+				gq.Node2VecArgs.RVal = int(intval)
+			} else {
+				intval, err := strconv.ParseInt(val, 10, 32)
+				if err != nil {
+					return nil, item.Errorf("The int value %q is error.", val)
+				}
+				gq.Node2VecArgs.LVal = int(intval)
+			}
 
 		default:
 			var val string

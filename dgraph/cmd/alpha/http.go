@@ -248,7 +248,8 @@ func queryHandler(w http.ResponseWriter, r *http.Request) {
 	resp, err := (&edgraph.Server{}).Query(ctx, &req)
 	if err != nil {
 		x.SetStatusWithData(w, x.ErrorInvalidRequest, err.Error())
-		return
+               glog.Errorln("(&edgraph.Server{}).Query err: ", err)
+               return
 	}
 	// Add cost to the header.
 	w.Header().Set(x.DgraphCostHeader, fmt.Sprint(resp.Metrics.NumUids["_total"]))
@@ -261,7 +262,8 @@ func queryHandler(w http.ResponseWriter, r *http.Request) {
 	js, err := json.Marshal(e)
 	if err != nil {
 		x.SetStatusWithData(w, x.Error, err.Error())
-		return
+	       glog.Errorln("json.Marshal err: ", err)
+               return
 	}
 
 	var out bytes.Buffer

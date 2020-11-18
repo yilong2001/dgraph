@@ -204,6 +204,11 @@ type params struct {
 	// AllowedPreds is a list of predicates accessible to query in context of ACL.
 	// For OSS this should remain nil.
 	AllowedPreds []string
+
+	// node2vec 2020-11-07 created
+	// node2vec for SubGraph params
+	Node2Vec bool
+	Node2VecArgs gql.Node2VecArgs
 }
 
 type pathMetadata struct {
@@ -789,6 +794,7 @@ func newGraph(ctx context.Context, gq *gql.GraphQuery) (*SubGraph, error) {
 		Recurse:          gq.Recurse,
 		RecurseArgs:      gq.RecurseArgs,
 		ShortestPathArgs: gq.ShortestPathArgs,
+		Node2VecArgs:     gq.Node2VecArgs,
 		Var:              gq.Var,
 		GroupbyAttrs:     gq.GroupbyAttrs,
 		IsGroupBy:        gq.IsGroupby,
@@ -1658,12 +1664,24 @@ func (sg *SubGraph) fillShortestPathVars(mp map[string]varValue) error {
 	return nil
 }
 
+/*
+ * 
+ * 2020-11-04 create
+*/
+func (sg *SubGraph) fillNode2VecVars(mp map[string]varValue) error {
+	return nil
+}
 // fillVars reads the value corresponding to a variable from the map mp and stores it inside
 // SubGraph. This value is then later used for execution of the SubGraph.
 func (sg *SubGraph) fillVars(mp map[string]varValue) error {
 	if sg.Params.Alias == "shortest" {
 		if err := sg.fillShortestPathVars(mp); err != nil {
 			return err
+		}
+	}
+
+	if sg.Params.Alias == "node2vec" {
+		if err := sg.fillNode2VecVars(mp); err != nil {
 		}
 	}
 
@@ -2661,7 +2679,9 @@ func (req *Request) ProcessQuery(ctx context.Context) (err error) {
 		gq := queries[i]
 
 		if gq == nil || (len(gq.UID) == 0 && gq.Func == nil && len(gq.NeedsVar) == 0 &&
-			gq.Alias != "shortest" && !gq.IsEmpty) {
+			gq.Alias != "shortest" && !gq.IsEmpty &&
+		    gq.Alias != "node2vec") {
+		    // 2020-11-07 changed  node2vec no aggr function
 			return errors.Errorf("Invalid query. No function used at root and no aggregation" +
 				" or math variables found in the body.")
 		}
@@ -2706,6 +2726,7 @@ func (req *Request) ProcessQuery(ctx context.Context) (err error) {
 	}
 
 	var shortestSg []*SubGraph
+	var n2vSg []*SubGraph
 	for i := 0; i < len(req.Subgraphs) && numQueriesDone < len(req.Subgraphs); i++ {
 		errChan := make(chan error, len(req.Subgraphs))
 		var idxList []int
@@ -2747,6 +2768,15 @@ func (req *Request) ProcessQuery(ctx context.Context) (err error) {
 			case sg.Params.Recurse:
 				go func() {
 					errChan <- recurse(ctx, sg)
+				}()
+			
+			// node2vec 2020-11-08 changed, no nested query
+                       case sg.Params.Alias == "node2vec":
+
+				go func() {
+					n2vSg, err = node2Vec(ctx, sg)
+					errChan <- err
+
 				}()
 			default:
 				go ProcessGraph(ctx, sg, nil, errChan)
@@ -2790,6 +2820,9 @@ func (req *Request) ProcessQuery(ctx context.Context) (err error) {
 	// If we had a shortestPath SG, append it to the result.
 	if len(shortestSg) != 0 {
 		req.Subgraphs = append(req.Subgraphs, shortestSg...)
+	}
+	if len(n2vSg) != 0 {
+		req.Subgraphs = append(req.Subgraphs, n2vSg...)
 	}
 	return nil
 }
@@ -2856,5 +2889,77 @@ func calculateMetrics(sg *SubGraph, metrics map[string]uint64) {
 	// Calculate metrics for the children as well.
 	for _, child := range sg.Children {
 		calculateMetrics(child, metrics)
+	}
+}
+
+/**********************************************************
+* added 20201116
+**********************************************************/
+func DisplaySubGraph(sg *SubGraph) {
+	glog.Infof("\n ****** SubGraph Display begin ******\n")
+	glog.Infof("\nReadTs : \n%q \n", sg.ReadTs)
+	glog.Infof("\nCache : \n%q \n", sg.Cache)
+	glog.Infof("\nAttr : \n%q \n", sg.Attr)
+	glog.Infof("\nUnknownAttr : \n%q \n", sg.UnknownAttr)
+	glog.Infof("\nparam : \n%q \n", sg.Params)
+
+	glog.Infof("\ncounts : \n%q \n", sg.counts)
+	glog.Infof("\nvalueMatrix : \n")
+	if sg.valueMatrix != nil {
+		count := 0
+		for _, vl := range sg.valueMatrix {
+			count++
+			glog.Infof("the %vth group: ", count)
+			if vl != nil && vl.Values != nil {
+				for _, epv := range vl.Values {
+					glog.Infof("%q, %q, ", string(epv.Val), epv.ValType)
+				}
+			}
+		}
+	}
+	glog.Infof("\nuidMatrix: \n")
+	if sg.uidMatrix != nil {
+		count := 0
+		for _, ul := range sg.uidMatrix {
+			count++
+			glog.Infof("the %vth group uids: ", count)
+			glog.Infof("%q\n", ul.Uids)
+		}
+	}
+	glog.Infof("\nfacetsMatrix: %q \n", sg.facetsMatrix)
+
+	glog.Infof("\nExpandPreds: \n")
+	if sg.ExpandPreds != nil {
+		for _, ep := range sg.ExpandPreds {
+			if ep != nil && ep.Values != nil {
+				for _, epv := range ep.Values {
+					glog.Infof("%q, %q", string(epv.Val), epv.ValType)
+				}
+			}
+		}
+	}
+
+	glog.Infof("\nGroupbyRes: \n%q \n\n", sg.GroupbyRes)
+	glog.Infof("\nLangTags: \n%q \n\n", sg.LangTags)
+
+	glog.Infof("\nSrcUIDs: \n%#v \n\n", sg.SrcUIDs)
+	glog.Infof("\nSrcFunc: \n%#v \n\n", sg.SrcFunc)
+	glog.Infof("\nDestUIDs: \n%#v \n\n", sg.DestUIDs)
+	glog.Infof("\nFilters: \n%#v \n\n", sg.Filters)
+	glog.Infof("\npathMeta: \n%q \n\n", sg.pathMeta)
+
+	glog.Infof("\n <<< subgraph children display begin <<< \n")
+	if sg.Children != nil {
+		for _, child := range sg.Children {
+			DisplaySubGraph(child)
+		}
+	}
+	glog.Infof("\n >>> subgraph children children end >>> \n")
+	glog.Infof("\n ****** SubGraph Display end ******\n")
+}
+
+func DisplaySubGraphs(sgs []*SubGraph) {
+	for _, sg := range sgs {
+		DisplaySubGraph(sg)
 	}
 }
